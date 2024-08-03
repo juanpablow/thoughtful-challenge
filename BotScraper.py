@@ -1,7 +1,11 @@
 import json
 import logging
+import os
+import re
 from datetime import datetime
 
+from RPA.Excel.Files import Files
+from RPA.HTTP import HTTP
 from RPA.Robocorp.WorkItems import WorkItems
 from selenium.webdriver.common.keys import Keys
 
@@ -16,6 +20,8 @@ class BotScraper(CustomSelenium):
     def __init__(self):
         super().__init__()
         self.work_items = WorkItems()
+        self.excel = Files()
+        self.http = HTTP()
         self.search_phrase = ""
         self.category = ""
         self.months = 0
@@ -228,6 +234,20 @@ class BotScraper(CustomSelenium):
                 ) or self.contains_money(news_obj["description"])
 
                 news.append(news_obj)
+
+            next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
+
+            try:
+                self.browser.wait_until_element_is_visible(next_page, timeout=10)
+                self.browser.click_element(next_page)
+                self.browser.wait_until_element_is_visible(article_element, timeout=10)
+            except Exception as e:
+                logging.warning(
+                    f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
+                )
+                break
+
+        return news
 
     def run(self, url):
         self.open_website(url)
