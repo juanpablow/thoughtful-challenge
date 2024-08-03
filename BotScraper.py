@@ -249,8 +249,19 @@ class BotScraper(CustomSelenium):
 
         return news
 
+    def save_to_excel(self, news):
+        if not news:
+            logging.warning("No news data to save.")
+            return
+        self.excel.create_workbook("output/news.xlsx")
+        self.excel.append_rows_to_worksheet(news, header=True)
+        self.excel.save_workbook()
+
     def run(self, url):
         self.open_website(url)
+        self.search_news()
+        news = self.get_news()
+        self.save_to_excel(news)
         self.driver_quit()
 
 
