@@ -143,6 +143,13 @@ class BotScraper(CustomSelenium):
             logging.warning(f"Title not found in article. Exception: {str(e)}")
             return "N/A"
 
+    def get_description_news(self, article):
+        try:
+            return article.find_element("css selector", "p.promo-description").text
+        except Exception as e:
+            logging.warning(f"Description not found in article. Exception: {str(e)}")
+            return "N/A"
+
     def get_news(self):
         news = []
 
@@ -167,6 +174,7 @@ class BotScraper(CustomSelenium):
                     break
 
                 news_obj["title"] = self.get_title_news(article)
+                news_obj["description"] = self.get_description_news(article)
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
