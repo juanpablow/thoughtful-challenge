@@ -2,7 +2,6 @@ tasks:
   Run bot:
     robotTask: BotScraper.py
     shell: python
-    workingDirectory: /tmp/robocorp-workspace
 condaConfigFile: conda.yaml
 
 artifactsDir: output
