@@ -2,7 +2,6 @@ import logging
 import os
 import re
 from datetime import datetime
-
 from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
 from RPA.Robocorp.WorkItems import WorkItems
@@ -99,32 +98,28 @@ class BotScraper(CustomSelenium):
             )
 
         if self.category:
-            category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
-            filters_open_button = "css:.button.filters-open-button"
-            apply_button = "css:.button.apply-button"
-            try:
-                if self.browser.is_element_visible(filters_open_button):
-                    self.browser.click_element(filters_open_button)
-                self.browser.wait_until_element_is_visible(
-                    category_checkbox_element, timeout=10
-                )
-            except Exception as e:
-                logging.warning(
-                    f"Category '{self.category}' not found. Exception: {str(e)}"
-                )
-            try:
-                self.browser.wait_until_element_is_visible(
-                    category_checkbox_element, timeout=10
-                )
-                self.browser.click_element(category_checkbox_element)
+            self.apply_category_filter()
 
-                if self.browser.is_element_visible(filters_open_button):
-                    self.browser.wait_until_element_is_visible(apply_button, timeout=10)
-                    self.browser.click_element(apply_button)
-            except Exception as e:
-                logging.warning(
-                    f"Category '{self.category}' not found. Exception: {str(e)}"
-                )
+    def apply_category_filter(self):
+        """Apply category filter if specified."""
+        category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
+        filters_open_button = "css:.button.filters-open-button"
+        apply_button = "css:.button.apply-button"
+
+        try:
+            if self.browser.is_element_visible(filters_open_button):
+                self.browser.click_element(filters_open_button)
+            self.browser.wait_until_element_is_visible(
+                category_checkbox_element, timeout=10
+            )
+            self.browser.click_element(category_checkbox_element)
+            if self.browser.is_element_visible(filters_open_button):
+                self.browser.wait_until_element_is_visible(apply_button, timeout=10)
+                self.browser.click_element(apply_button)
+        except Exception as e:
+            logging.warning(
+                f"Category '{self.category}' not found. Exception: {str(e)}"
+            )
 
     def get_news(self):
         news = []
@@ -244,11 +239,10 @@ class BotScraper(CustomSelenium):
             image_element = article.find_element("css selector", "div.promo-media img")
             image_url = image_element.get_attribute("src")
             folder_name = self.search_phrase.lower().replace(" ", "-")
+            image_folder_path = os.path.join("output", f"{folder_name}_images")
             filename = self.regex(str(title).lower()).replace(" ", "-")
             image_filename = f"{filename}.png"
-            image_abs_path = os.path.join(
-                os.getcwd(), "output", f"{folder_name}_images", image_filename
-            )
+            image_abs_path = os.path.join(image_folder_path, image_filename)
             self.download_image(image_url, image_abs_path)
             return image_abs_path, image_filename
         except Exception as e:
