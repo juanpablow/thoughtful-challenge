@@ -150,6 +150,31 @@ class BotScraper(CustomSelenium):
             logging.warning(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
 
+    def get_image_news(self, article, title):
+        try:
+            image_element = article.find_element("css selector", "div.promo-media img")
+            image_url = image_element.get_attribute("src")
+            folder_name = self.search_phrase.lower().replace(" ", "-")
+            filename = self.regex(str(title).lower()).replace(" ", "-")
+            image_filename = os.path.join(
+                "output", f"{folder_name}_images/{filename}.png"
+            )
+            self.download_image(image_url, image_filename)
+            return image_filename
+        except Exception as e:
+            logging.warning(
+                f"Image not found in article or failed to download. Exception: {str(e)}"
+            )
+            return "N/A"
+
+    def download_image(self, image_url, file_path):
+        try:
+            self.http.download(image_url, file_path)
+        except Exception as e:
+            logging.warning(
+                f"Failed to download image from {image_url}. Exception: {str(e)}"
+            )
+
     def get_news(self):
         news = []
 
@@ -175,6 +200,9 @@ class BotScraper(CustomSelenium):
 
                 news_obj["title"] = self.get_title_news(article)
                 news_obj["description"] = self.get_description_news(article)
+                news_obj["picture_filename"] = self.get_image_news(
+                    article, news_obj["title"]
+                )
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
