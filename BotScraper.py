@@ -180,6 +180,12 @@ class BotScraper(CustomSelenium):
         search_phrase_count += description.lower().count(self.search_phrase.lower())
         return search_phrase_count
 
+    def contains_money(self, text):
+        money_pattern = re.compile(
+            r"\$\d+(\.\d{1,2})?|(\d{1,3}(,\d{3})*(\.\d{2})?)? (dollars|USD)",
+            re.IGNORECASE,
+        )
+        return bool(money_pattern.search(text))
 
     def get_news(self):
         news = []
@@ -213,6 +219,12 @@ class BotScraper(CustomSelenium):
                 news_obj["search_phrase_count"] = self.count_search_phrase(
                     news_obj["title"], news_obj["description"]
                 )
+
+                news_obj["contains_money"] = self.contains_money(
+                    news_obj["title"]
+                ) or self.contains_money(news_obj["description"])
+
+                news.append(news_obj)
 
     def run(self, url):
         self.open_website(url)
