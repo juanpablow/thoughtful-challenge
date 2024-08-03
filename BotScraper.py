@@ -136,6 +136,13 @@ class BotScraper(CustomSelenium):
             logging.warning(f"Date not found in article. Exception: {str(e)}")
             return "N/A", True
 
+    def get_title_news(self, article):
+        try:
+            return article.find_element("css selector", "h3.promo-title a").text
+        except Exception as e:
+            logging.warning(f"Title not found in article. Exception: {str(e)}")
+            return "N/A"
+
     def get_news(self):
         news = []
 
@@ -158,6 +165,8 @@ class BotScraper(CustomSelenium):
                 news_obj["date"], not_month_limit = self.get_date_news(article)
                 if not not_month_limit:
                     break
+
+                news_obj["title"] = self.get_title_news(article)
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
