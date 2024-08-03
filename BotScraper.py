@@ -174,6 +174,12 @@ class BotScraper(CustomSelenium):
             logging.warning(
                 f"Failed to download image from {image_url}. Exception: {str(e)}"
             )
+            
+    def count_search_phrase(self, title, description):
+        search_phrase_count = title.lower().count(self.search_phrase.lower())
+        search_phrase_count += description.lower().count(self.search_phrase.lower())
+        return search_phrase_count
+
 
     def get_news(self):
         news = []
@@ -203,6 +209,11 @@ class BotScraper(CustomSelenium):
                 news_obj["picture_filename"] = self.get_image_news(
                     article, news_obj["title"]
                 )
+
+                news_obj["search_phrase_count"] = self.count_search_phrase(
+                    news_obj["title"], news_obj["description"]
+                )
+
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
