@@ -2,11 +2,11 @@ import logging
 import os
 import re
 from datetime import datetime
+
 from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
 from RPA.Robocorp.WorkItems import WorkItems
 from selenium.webdriver.common.keys import Keys
-from selenium.common.exceptions import StaleElementReferenceException
 
 from CustomSelenium import CustomSelenium
 
@@ -30,6 +30,7 @@ class BotScraper(CustomSelenium):
         try:
             self.work_items.get_input_work_item()
             work_item_data = self.work_items.get_work_item_variables()
+
             try:
                 self.search_phrase = work_item_data["search_phrase"]
                 if not self.search_phrase:
@@ -54,12 +55,12 @@ class BotScraper(CustomSelenium):
                 self.months = int(work_item_data.get("months", 0))
                 if self.months < 0:
                     logging.warning(
-                        "The 'months' provided is less than 0. Defaulting to 0."
+                        "The 'months' provided is less than 0. Defaulting to 1."
                     )
-                    self.months = 0
+                    self.months = 1
             except ValueError:
                 logging.warning(
-                    "The 'months' is not a valid integer in the work item, defaulting to 0."
+                    "The 'months' is not a valid integer in the work item, defaulting to 1."
                 )
                 self.months = 0
             if self.months == 0:
@@ -98,57 +99,43 @@ class BotScraper(CustomSelenium):
             )
 
         if self.category:
-            self.apply_category_filter()
+            category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
+            filters_open_button = "css:.button.filters-open-button"
+            apply_button = "css:.button.apply-button"
+            try:
+                if self.browser.is_element_visible(filters_open_button):
+                    self.browser.click_element(filters_open_button)
+                self.browser.wait_until_element_is_visible(
+                    category_checkbox_element, timeout=10
+                )
+            except Exception as e:
+                logging.warning(
+                    f"Category '{self.category}' not found. Exception: {str(e)}"
+                )
+            try:
+                self.browser.wait_until_element_is_visible(
+                    category_checkbox_element, timeout=10
+                )
+                self.browser.click_element(category_checkbox_element)
 
-    def apply_category_filter(self):
-        """Apply category filter if specified."""
-        category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
-        filters_open_button = "css:.button.filters-open-button"
-        apply_button = "css:.button.apply-button"
-
-        try:
-            if self.browser.is_element_visible(filters_open_button):
-                self.browser.click_element(filters_open_button)
-            self.browser.wait_until_element_is_visible(
-                category_checkbox_element, timeout=10
-            )
-            self.browser.click_element(category_checkbox_element)
-            if self.browser.is_element_visible(filters_open_button):
-                self.browser.wait_until_element_is_visible(apply_button, timeout=10)
-                self.browser.click_element(apply_button)
-        except Exception as e:
-            logging.warning(
-                f"Category '{self.category}' not found. Exception: {str(e)}"
-            )
+                if self.browser.is_element_visible(filters_open_button):
+                    self.browser.wait_until_element_is_visible(apply_button, timeout=10)
+                    self.browser.click_element(apply_button)
+            except Exception as e:
+                logging.warning(
+                    f"Category '{self.category}' not found. Exception: {str(e)}"
+                )
 
     def get_news(self):
         news = []
 
         not_month_limit = True
         while not_month_limit:
-            article_element = "css:ps-promo[data-content-type='article']"
-            image_element = "css:div.promo-media img"
-            self.browser.wait_until_element_is_visible(article_element, timeout=10)
-            self.browser.wait_until_element_is_visible(image_element, timeout=10)
-            articles = self.browser.find_elements(article_element)
+            article_element = "css:div[class='promo-wrapper']"
+            self.browser.wait_until_element_is_visible(article_element, timeout=20)
             articles = self.browser.find_elements(article_element)
 
-            for i in range(len(articles)):
-                try:
-                    articles = self.browser.find_elements(article_element)
-                    article = articles[i]
-                    self.browser.wait_until_element_is_visible(article, timeout=10)
-                except StaleElementReferenceException:
-                    logging.warning(
-                        f"Stale element reference at index {i}, re-obtaining element."
-                    )
-                    continue
-                except IndexError:
-                    logging.warning(
-                        f"Index {i} out of range after re-obtaining elements."
-                    )
-                    break
-
+            for article in articles:
                 news_obj = {
                     "title": "N/A",
                     "description": "N/A",
@@ -179,24 +166,19 @@ class BotScraper(CustomSelenium):
 
                 news.append(news_obj)
 
-            if not self.goto_next_page(article_element):
+            next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
+
+            try:
+                self.browser.wait_until_element_is_visible(next_page, timeout=10)
+                self.browser.click_element(next_page)
+                self.browser.wait_until_element_is_visible(article_element, timeout=10)
+            except Exception as e:
+                logging.warning(
+                    f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
+                )
                 break
 
         return news
-
-    def goto_next_page(self, article_element):
-        next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
-
-        try:
-            self.browser.wait_until_element_is_visible(next_page, timeout=10)
-            self.browser.click_element(next_page)
-            self.browser.wait_until_element_is_visible(article_element, timeout=10)
-            return True
-        except Exception as e:
-            logging.warning(
-                f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
-            )
-            return False
 
     def get_date_news(self, article):
         current_date = datetime.now()
@@ -212,7 +194,7 @@ class BotScraper(CustomSelenium):
                 current_year_month[1] - article_year_month[1]
             )
 
-            if month_diff >= self.months:
+            if month_diff > self.months:
                 return None, False
 
             return str(article_date.strftime("%m/%d/%Y")), True
@@ -239,11 +221,12 @@ class BotScraper(CustomSelenium):
             image_element = article.find_element("css selector", "div.promo-media img")
             image_url = image_element.get_attribute("src")
             folder_name = self.search_phrase.lower().replace(" ", "-")
-            image_folder_path = os.path.join("output", f"{folder_name}_images")
             filename = self.regex(str(title).lower()).replace(" ", "-")
             image_filename = f"{filename}.png"
-            image_abs_path = os.path.join(image_folder_path, image_filename)
-            self.download_image(image_url, image_abs_path)
+            image_abs_path = os.path.join(
+                os.getcwd(), "output", f"{folder_name}_images", image_filename
+            )
+            self.download_image(image_url, f"output/{image_filename}")
             return image_abs_path, image_filename
         except Exception as e:
             logging.warning(
