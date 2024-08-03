@@ -1,6 +1,8 @@
+from BotScraper import BotScraper
 from robocorp.tasks import task
 
+
 @task
-def minimal_task():
-    message = "Hello"
-    message = message + " World!"
+def rub_bot():
+    bot = BotScraper()
+    bot.run("https://www.latimes.com/")
