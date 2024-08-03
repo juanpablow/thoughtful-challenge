@@ -29,10 +29,10 @@ class BotScraper(CustomSelenium):
     def load_work_item(self):
         try:
             self.work_items.get_input_work_item()
-            work_item = self.work_items.get_work_item_data()
+            work_item_data = self.work_items.get_work_item_variables()
 
             try:
-                self.search_phrase = work_item["search_phrase"]
+                self.search_phrase = work_item_data["search_phrase"]
                 if not self.search_phrase:
                     raise ValueError(
                         "The 'search_phrase' is mandatory and was not provided in the work item."
@@ -46,21 +46,21 @@ class BotScraper(CustomSelenium):
                 )
 
             try:
-                self.category = work_item["category"]
+                self.category = work_item_data.get("category", None)
             except KeyError:
                 logging.warning("The 'category' was not provided in the work item.")
                 self.category = None
 
             try:
-                self.months = int(work_item["months"])
+                self.months = int(work_item_data.get("months", 0))
                 if self.months < 0:
                     logging.warning(
                         "The 'months' provided is less than 0. Defaulting to 0."
                     )
                     self.months = 0
-            except (KeyError, ValueError):
+            except ValueError:
                 logging.warning(
-                    "The 'months' was not provided or is not a valid integer in the work item, defaulting to 0."
+                    "The 'months' is not a valid integer in the work item, defaulting to 0."
                 )
                 self.months = 0
             if self.months == 0:
