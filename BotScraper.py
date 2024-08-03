@@ -1,4 +1,6 @@
+import json
 import logging
+from datetime import datetime
 
 from RPA.Robocorp.WorkItems import WorkItems
 from selenium.webdriver.common.keys import Keys
@@ -112,6 +114,50 @@ class BotScraper(CustomSelenium):
                     f"Category '{self.category}' not found. Exception: {str(e)}"
                 )
 
+    def get_date_news(self, article):
+        current_date = datetime.now()
+        current_year_month = (current_date.year, current_date.month)
+        try:
+            date_timestamp = article.find_element(
+                "css selector", "p[data-timestamp]"
+            ).get_attribute("data-timestamp")
+            article_date = datetime.fromtimestamp(int(date_timestamp) / 1000.0)
+            article_year_month = (article_date.year, article_date.month)
+
+            month_diff = (current_year_month[0] - article_year_month[0]) * 12 + (
+                current_year_month[1] - article_year_month[1]
+            )
+
+            if month_diff >= self.months:
+                return None, False
+
+            return str(article_date.strftime("%m/%d/%Y")), True
+        except Exception as e:
+            logging.warning(f"Date not found in article. Exception: {str(e)}")
+            return "N/A", True
+
+    def get_news(self):
+        news = []
+
+        not_month_limit = True
+        while not_month_limit:
+            article_element = "css:ps-promo[data-content-type='article']"
+            self.browser.wait_until_element_is_visible(article_element, timeout=10)
+            articles = self.browser.find_elements(article_element)
+
+            for article in articles:
+                news_obj = {
+                    "title": "N/A",
+                    "description": "N/A",
+                    "date": "N/A",
+                    "picture_filename": "N/A",
+                    "search_phrase_count": 0,
+                    "contains_money": False,
+                }
+
+                news_obj["date"], not_month_limit = self.get_date_news(article)
+                if not not_month_limit:
+                    break
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
