@@ -7,6 +7,7 @@ from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
 from RPA.Robocorp.WorkItems import WorkItems
 from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import StaleElementReferenceException
 
 from CustomSelenium import CustomSelenium
 
@@ -30,7 +31,6 @@ class BotScraper(CustomSelenium):
         try:
             self.work_items.get_input_work_item()
             work_item_data = self.work_items.get_work_item_variables()
-
             try:
                 self.search_phrase = work_item_data["search_phrase"]
                 if not self.search_phrase:
@@ -132,10 +132,28 @@ class BotScraper(CustomSelenium):
         not_month_limit = True
         while not_month_limit:
             article_element = "css:ps-promo[data-content-type='article']"
+            image_element = "css:div.promo-media img"
             self.browser.wait_until_element_is_visible(article_element, timeout=10)
+            self.browser.wait_until_element_is_visible(image_element, timeout=10)
+            articles = self.browser.find_elements(article_element)
             articles = self.browser.find_elements(article_element)
 
-            for article in articles:
+            for i in range(len(articles)):
+                try:
+                    articles = self.browser.find_elements(article_element)
+                    article = articles[i]
+                    self.browser.wait_until_element_is_visible(article, timeout=10)
+                except StaleElementReferenceException:
+                    logging.warning(
+                        f"Stale element reference at index {i}, re-obtaining element."
+                    )
+                    continue
+                except IndexError:
+                    logging.warning(
+                        f"Index {i} out of range after re-obtaining elements."
+                    )
+                    break
+
                 news_obj = {
                     "title": "N/A",
                     "description": "N/A",
@@ -166,19 +184,24 @@ class BotScraper(CustomSelenium):
 
                 news.append(news_obj)
 
-            next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
-
-            try:
-                self.browser.wait_until_element_is_visible(next_page, timeout=10)
-                self.browser.click_element(next_page)
-                self.browser.wait_until_element_is_visible(article_element, timeout=10)
-            except Exception as e:
-                logging.warning(
-                    f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
-                )
+            if not self.goto_next_page(article_element):
                 break
 
         return news
+
+    def goto_next_page(self, article_element):
+        next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
+
+        try:
+            self.browser.wait_until_element_is_visible(next_page, timeout=10)
+            self.browser.click_element(next_page)
+            self.browser.wait_until_element_is_visible(article_element, timeout=10)
+            return True
+        except Exception as e:
+            logging.warning(
+                f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
+            )
+            return False
 
     def get_date_news(self, article):
         current_date = datetime.now()
@@ -261,7 +284,8 @@ class BotScraper(CustomSelenium):
         if not news:
             logging.warning("No news data to save.")
             return
-        self.excel.create_workbook("output/news.xlsx")
+        excel_filename = self.search_phrase.lower().replace(" ", "-")
+        self.excel.create_workbook(f"output/news_{excel_filename}.xlsx")
         self.excel.append_rows_to_worksheet(news, header=True)
         self.excel.save_workbook()
 
