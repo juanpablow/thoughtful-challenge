@@ -174,7 +174,10 @@ class BotScraper(CustomSelenium):
             logging.warning(
                 f"Failed to download image from {image_url}. Exception: {str(e)}"
             )
-            
+
+    def regex(self, text):
+        return re.sub(r"[^A-Za-z0-9\s]+", "", text)
+
     def count_search_phrase(self, title, description):
         search_phrase_count = title.lower().count(self.search_phrase.lower())
         search_phrase_count += description.lower().count(self.search_phrase.lower())
