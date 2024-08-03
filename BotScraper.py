@@ -60,6 +60,58 @@ class BotScraper(CustomSelenium):
         self.open_browser()
         self.open_url(url)
 
+    def search_news(self):
+        search_btn_element = "css:button[data-element='search-button']"
+        search_input_element = "css:input[data-element='search-form-input']"
+        select_input_element = "css:select.select-input"
+        option_newest_element = "xpath://option[text()='Newest']"
+
+        self.browser.wait_until_element_is_visible(search_btn_element, timeout=10)
+        self.browser.click_button(search_btn_element)
+        self.browser.input_text(search_input_element, self.search_phrase)
+        self.browser.press_key(search_input_element, Keys.ENTER)
+
+        try:
+            self.browser.wait_until_element_is_visible(select_input_element, timeout=10)
+            self.browser.click_element(select_input_element)
+
+            self.browser.wait_until_element_is_visible(
+                option_newest_element, timeout=10
+            )
+            self.browser.click_element(option_newest_element)
+        except Exception as e:
+            logging.warning(
+                f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
+            )
+
+        if self.category:
+            category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
+            filters_open_button = "css:.button.filters-open-button"
+            apply_button = "css:.button.apply-button"
+            try:
+                if self.browser.is_element_visible(filters_open_button):
+                    self.browser.click_element(filters_open_button)
+                self.browser.wait_until_element_is_visible(
+                    category_checkbox_element, timeout=10
+                )
+            except Exception as e:
+                logging.warning(
+                    f"Category '{self.category}' not found. Exception: {str(e)}"
+                )
+            try:
+                self.browser.wait_until_element_is_visible(
+                    category_checkbox_element, timeout=10
+                )
+                self.browser.click_element(category_checkbox_element)
+
+                if self.browser.is_element_visible(filters_open_button):
+                    self.browser.wait_until_element_is_visible(apply_button, timeout=10)
+                    self.browser.click_element(apply_button)
+            except Exception as e:
+                logging.warning(
+                    f"Category '{self.category}' not found. Exception: {str(e)}"
+                )
+
     def run(self, url):
         self.open_website(url)
         self.driver_quit()
