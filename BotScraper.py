@@ -67,14 +67,14 @@ class BotScraper(CustomSelenium):
                 self.months = 1
 
         except Exception as e:
-            logging.error(f"Failed to load work item: {str(e)}")
-            raise
+            logging.error(f"Failed to load work items: {str(e)}")
+            raise ValueError(e)
 
     def open_website(self, url):
         self.open_browser()
         self.open_url(url)
 
-    def search_news(self):
+    def search_and_filter_news(self):
         search_btn_element = "css:button[data-element='search-button']"
         search_input_element = "css:input[data-element='search-form-input']"
         select_input_element = "css:select.select-input"
@@ -120,7 +120,9 @@ class BotScraper(CustomSelenium):
                 option_newest_element, timeout=10
             )
             self.browser.click_element(option_newest_element)
-            self.browser.wait_until_element_is_not_visible(option_newest_element)
+            self.browser.wait_until_element_is_not_visible(
+                option_newest_element, timeout=10
+            )
         except Exception as e:
             logging.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
@@ -133,7 +135,7 @@ class BotScraper(CustomSelenium):
 
         while not_month_limit:
             try:
-                self.browser.wait_until_element_is_visible(article_element, timeout=20)
+                self.browser.wait_until_element_is_visible(article_element, timeout=10)
                 articles = self.browser.find_elements(article_element)
 
                 for article in articles:
@@ -169,23 +171,22 @@ class BotScraper(CustomSelenium):
                         logging.warning(f"Failed to process article: {str(e)}")
                         continue
 
-                next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
-                try:
-                    self.browser.wait_until_element_is_visible(next_page, timeout=10)
-                    self.browser.click_element(next_page)
-                    self.browser.wait_until_element_is_visible(
-                        article_element, timeout=10
-                    )
-                except Exception as e:
-                    logging.warning(
-                        f"Next page element not found or click failed. Exception: {str(e)}"
-                    )
-                    break
+                self.goto_next_page()
             except Exception as e:
                 logging.warning(f"Failed to find articles: {str(e)}")
                 break
 
         return news
+
+    def goto_next_page(self):
+        next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
+        try:
+            self.browser.wait_until_element_is_visible(next_page, timeout=10)
+            self.browser.click_element(next_page)
+        except Exception as e:
+            logging.warning(
+                f"Next page element not found or click failed. Exception: {str(e)}"
+            )
 
     def get_date_news(self, article):
         current_date = datetime.now()
@@ -201,7 +202,7 @@ class BotScraper(CustomSelenium):
                 current_year_month[1] - article_year_month[1]
             )
 
-            if month_diff > self.months:
+            if month_diff >= self.months:
                 return None, False
 
             return str(article_date.strftime("%m/%d/%Y")), True
@@ -265,20 +266,27 @@ class BotScraper(CustomSelenium):
         return bool(money_pattern.search(text))
 
     def save_to_excel(self, news):
-        if not news:
-            logging.warning("No news data to save.")
-            return
-        excel_filename = self.search_phrase.lower().replace(" ", "-")
-        self.excel.create_workbook(f"output/news_{excel_filename}.xlsx")
-        self.excel.append_rows_to_worksheet(news, header=True)
-        self.excel.save_workbook()
+        try:
+            if not news:
+                logging.warning("No news data to save.")
+                return
+            excel_filename = self.search_phrase.lower().replace(" ", "-")
+            self.excel.create_workbook(f"output/news_{excel_filename}.xlsx")
+            self.excel.append_rows_to_worksheet(news, header=True)
+            self.excel.save_workbook()
+        except Exception as e:
+            logging.error(f"Failed to save news to Excel: {str(e)}")
 
     def run(self, url):
-        self.open_website(url)
-        self.search_news()
-        news = self.get_news()
-        self.save_to_excel(news)
-        self.driver_quit()
+        try:
+            self.open_website(url)
+            self.search_and_filter_news()
+            news = self.get_news()
+            self.save_to_excel(news)
+        except Exception as e:
+            logging.error(f"An error occurred during execution: {str(e)}")
+        finally:
+            self.driver_quit()
 
 
 if __name__ == "__main__":
