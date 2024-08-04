@@ -85,19 +85,6 @@ class BotScraper(CustomSelenium):
         self.browser.input_text(search_input_element, self.search_phrase)
         self.browser.press_key(search_input_element, Keys.ENTER)
 
-        try:
-            self.browser.wait_until_element_is_visible(select_input_element, timeout=10)
-            self.browser.click_element(select_input_element)
-
-            self.browser.wait_until_element_is_visible(
-                option_newest_element, timeout=10
-            )
-            self.browser.click_element(option_newest_element)
-        except Exception as e:
-            logging.warning(
-                f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
-            )
-
         if self.category:
             category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
             filters_open_button = "css:.button.filters-open-button"
@@ -125,57 +112,77 @@ class BotScraper(CustomSelenium):
                 logging.warning(
                     f"Category '{self.category}' not found. Exception: {str(e)}"
                 )
+        try:
+            self.browser.wait_until_element_is_visible(select_input_element, timeout=10)
+            self.browser.click_element(select_input_element)
+
+            self.browser.wait_until_element_is_visible(
+                option_newest_element, timeout=10
+            )
+            self.browser.click_element(option_newest_element)
+            self.browser.wait_until_element_is_not_visible(option_newest_element)
+        except Exception as e:
+            logging.warning(
+                f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
+            )
 
     def get_news(self):
         news = []
-
         not_month_limit = True
+        article_element = "css:div[class='promo-wrapper']"
+
         while not_month_limit:
-            article_element = "css:div[class='promo-wrapper']"
-            self.browser.wait_until_element_is_visible(article_element, timeout=20)
-            articles = self.browser.find_elements(article_element)
-
-            for article in articles:
-                news_obj = {
-                    "title": "N/A",
-                    "description": "N/A",
-                    "date": "N/A",
-                    "picture_filename": "N/A",
-                    "picture_path": "N/A",
-                    "search_phrase_count": 0,
-                    "contains_money": False,
-                }
-
-                news_obj["date"], not_month_limit = self.get_date_news(article)
-                if not not_month_limit:
-                    break
-
-                news_obj["title"] = self.get_title_news(article)
-                news_obj["description"] = self.get_description_news(article)
-                news_obj["picture_path"], news_obj["picture_filename"] = (
-                    self.get_image_news(article, news_obj["title"])
-                )
-
-                news_obj["search_phrase_count"] = self.count_search_phrase(
-                    news_obj["title"], news_obj["description"]
-                )
-
-                news_obj["contains_money"] = self.contains_money(
-                    news_obj["title"]
-                ) or self.contains_money(news_obj["description"])
-
-                news.append(news_obj)
-
-            next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
-
             try:
-                self.browser.wait_until_element_is_visible(next_page, timeout=10)
-                self.browser.click_element(next_page)
-                self.browser.wait_until_element_is_visible(article_element, timeout=10)
+                self.browser.wait_until_element_is_visible(article_element, timeout=20)
+                articles = self.browser.find_elements(article_element)
+
+                for article in articles:
+                    try:
+                        news_obj = {
+                            "title": "N/A",
+                            "description": "N/A",
+                            "date": "N/A",
+                            "picture_filename": "N/A",
+                            "picture_path": "N/A",
+                            "search_phrase_count": 0,
+                            "contains_money": False,
+                        }
+
+                        news_obj["date"], not_month_limit = self.get_date_news(article)
+                        if not not_month_limit:
+                            break
+
+                        news_obj["title"] = self.get_title_news(article)
+                        news_obj["description"] = self.get_description_news(article)
+                        news_obj["picture_path"], news_obj["picture_filename"] = (
+                            self.get_image_news(article, news_obj["title"])
+                        )
+                        news_obj["search_phrase_count"] = self.count_search_phrase(
+                            news_obj["title"], news_obj["description"]
+                        )
+                        news_obj["contains_money"] = self.contains_money(
+                            news_obj["title"]
+                        ) or self.contains_money(news_obj["description"])
+
+                        news.append(news_obj)
+                    except Exception as e:
+                        logging.warning(f"Failed to process article: {str(e)}")
+                        continue
+
+                next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
+                try:
+                    self.browser.wait_until_element_is_visible(next_page, timeout=10)
+                    self.browser.click_element(next_page)
+                    self.browser.wait_until_element_is_visible(
+                        article_element, timeout=10
+                    )
+                except Exception as e:
+                    logging.warning(
+                        f"Next page element not found or click failed. Exception: {str(e)}"
+                    )
+                    break
             except Exception as e:
-                logging.warning(
-                    f"Next page element with rel='nofollow' not found or click failed. Exception: {str(e)}"
-                )
+                logging.warning(f"Failed to find articles: {str(e)}")
                 break
 
         return news
@@ -220,13 +227,13 @@ class BotScraper(CustomSelenium):
         try:
             image_element = article.find_element("css selector", "div.promo-media img")
             image_url = image_element.get_attribute("src")
-            folder_name = self.search_phrase.lower().replace(" ", "-")
             filename = self.regex(str(title).lower()).replace(" ", "-")
             image_filename = f"{filename}.png"
-            image_abs_path = os.path.join(
-                os.getcwd(), "output", f"{folder_name}_images", image_filename
-            )
-            self.download_image(image_url, f"output/{image_filename}")
+            download_path = f"output/{image_filename}"
+
+            image_abs_path = os.path.join(os.getcwd(), download_path)
+
+            self.download_image(image_url, download_path)
             return image_abs_path, image_filename
         except Exception as e:
             logging.warning(
