@@ -3,69 +3,12 @@ import os
 import re
 from datetime import datetime
 
-from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
-from RPA.Robocorp.WorkItems import WorkItems
 from selenium.common.exceptions import StaleElementReferenceException
 
 from CustomSelenium import CustomSelenium
 
-logging.basicConfig(
-    level=logging.INFO, format="%(asctime)s - %(levelname)s - %(message)s"
-)
-
-
-class WorkItemLoader:
-    def __init__(self):
-        self.work_items = WorkItems()
-        self.search_phrase = ""
-        self.category = ""
-        self.months = 0
-
-    def load(self):
-        try:
-            self.work_items.get_input_work_item()
-            work_item_data = self.work_items.get_work_item_variables()
-
-            self.search_phrase = self._get_mandatory_value(
-                work_item_data, "search_phrase"
-            )
-            self.category = work_item_data.get("category", None)
-            self.months = self._get_months(work_item_data)
-        except Exception as e:
-            logging.error(f"Failed to load work items: {str(e)}")
-            raise ValueError(e)
-
-    def _get_mandatory_value(self, data, key):
-        try:
-            value = data[key]
-            if not value:
-                raise ValueError(
-                    f"The '{key}' is mandatory and was not provided in the work item."
-                )
-            return value
-        except KeyError:
-            logging.error(
-                f"The '{key}' is mandatory and was not provided in the work item."
-            )
-            raise ValueError(
-                f"The '{key}' is mandatory and was not provided in the work item."
-            )
-
-    def _get_months(self, data):
-        try:
-            months = int(data.get("months", 0))
-            if months < 0:
-                logging.warning(
-                    "The 'months' provided is less than 0. Defaulting to 1."
-                )
-                return 1
-            return months if months > 0 else 1
-        except ValueError:
-            logging.warning(
-                "The 'months' is not a valid integer in the work item, defaulting to 1."
-            )
-            return 1
+logger = logging.getLogger(__name__)
 
 
 class NewsScraper(CustomSelenium):
@@ -89,6 +32,7 @@ class NewsScraper(CustomSelenium):
         search_input_element = "css:input[data-element='search-form-input']"
         select_input_element = "css:select.select-input"
         option_newest_element = "xpath://option[text()='Newest']"
+        article_element = "css:div[class='promo-wrapper']"
 
         self.browser.wait_until_element_is_visible(search_btn_element, timeout=10)
         self.browser.click_button(search_btn_element)
@@ -111,8 +55,13 @@ class NewsScraper(CustomSelenium):
                 option_newest_element, timeout=10
             )
             self.browser.click_element(option_newest_element)
+            elements = self.browser.find_elements(article_element)
+            for element in elements:
+                self.browser.wait_for_expected_condition(
+                    "staleness_of", element, timeout=30
+                )
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
             )
 
@@ -127,9 +76,7 @@ class NewsScraper(CustomSelenium):
                 category_checkbox_element, timeout=10
             )
         except Exception as e:
-            logging.warning(
-                f"Category '{self.category}' not found. Exception: {str(e)}"
-            )
+            logger.warning(f"Category '{self.category}' not found. Exception: {str(e)}")
 
         try:
             self.browser.wait_until_element_is_visible(
@@ -141,9 +88,7 @@ class NewsScraper(CustomSelenium):
                 self.browser.wait_until_element_is_visible(apply_button, timeout=10)
                 self.browser.click_element(apply_button)
         except Exception as e:
-            logging.warning(
-                f"Category '{self.category}' not found. Exception: {str(e)}"
-            )
+            logger.warning(f"Category '{self.category}' not found. Exception: {str(e)}")
 
     def _is_element_stale(self, element):
         try:
@@ -180,12 +125,12 @@ class NewsScraper(CustomSelenium):
                             break
                         news.append(news_obj)
                     except Exception as e:
-                        logging.warning(f"Failed to process article: {str(e)}")
+                        logger.warning(f"Failed to process article: {str(e)}")
                         continue
                 if next_page:
                     self._goto_next_page()
             except Exception as e:
-                logging.warning(f"Failed to find articles: {str(e)}")
+                logger.warning(f"Failed to find articles: {str(e)}")
                 break
 
         return news
@@ -220,7 +165,7 @@ class NewsScraper(CustomSelenium):
 
             return news_obj
         except Exception as e:
-            logging.warning(f"Failed to process article: {str(e)}")
+            logger.warning(f"Failed to process article: {str(e)}")
             return None
 
     def _goto_next_page(self):
@@ -250,21 +195,21 @@ class NewsScraper(CustomSelenium):
 
             return str(article_date.strftime("%m/%d/%Y")), True
         except Exception as e:
-            logging.warning(f"Date not found in article. Exception: {str(e)}")
+            logger.warning(f"Date not found in article. Exception: {str(e)}")
             return "N/A", True
 
     def _get_title_news(self, article):
         try:
             return article.find_element("css selector", "h3.promo-title a").text
         except Exception as e:
-            logging.warning(f"Title not found in article. Exception: {str(e)}")
+            logger.warning(f"Title not found in article. Exception: {str(e)}")
             return "N/A"
 
     def _get_description_news(self, article):
         try:
             return article.find_element("css selector", "p.promo-description").text
         except Exception as e:
-            logging.warning(f"Description not found in article. Exception: {str(e)}")
+            logger.warning(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
 
     def _get_image_news(self, article, title):
@@ -280,7 +225,7 @@ class NewsScraper(CustomSelenium):
             self._download_image(image_url, download_path)
             return image_abs_path, image_filename
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 f"Image not found in article or failed to download. Exception: {str(e)}"
             )
             return "N/A", "N/A"
@@ -289,7 +234,7 @@ class NewsScraper(CustomSelenium):
         try:
             self.http.download(image_url, file_path)
         except Exception as e:
-            logging.warning(
+            logger.warning(
                 f"Failed to download image from {image_url}. Exception: {str(e)}"
             )
 
@@ -309,56 +254,3 @@ class NewsScraper(CustomSelenium):
             re.IGNORECASE,
         )
         return bool(money_pattern.search(text))
-
-
-class ExcelSaver:
-    def __init__(self):
-        self.excel = Files()
-
-    def save(self, news, search_phrase):
-        try:
-            if not news:
-                logging.warning("No news data to save.")
-                return
-            excel_filename = search_phrase.lower().replace(" ", "-")
-            self.excel.create_workbook(f"output/news_{excel_filename}.xlsx")
-            self.excel.append_rows_to_worksheet(news, header=True)
-            self.excel.save_workbook()
-        except Exception as e:
-            logging.error(f"Failed to save news to Excel: {str(e)}")
-
-
-class BotScraper:
-    def __init__(self):
-        self.work_item_loader = WorkItemLoader()
-        self.news_scraper = None
-        self.excel_saver = ExcelSaver()
-
-    def load_work_item(self):
-        self.work_item_loader.load()
-        self.news_scraper = NewsScraper(
-            self.work_item_loader.search_phrase,
-            self.work_item_loader.category,
-            self.work_item_loader.months,
-        )
-
-    def open_website(self, url):
-        self.news_scraper.open_browser()
-        self.news_scraper.open_url(url)
-
-    def run(self, url):
-        try:
-            self.load_work_item()
-            self.open_website(url)
-            self.news_scraper.search_and_filter_news()
-            news = self.news_scraper.get_news()
-            self.excel_saver.save(news, self.work_item_loader.search_phrase)
-        except Exception as e:
-            logging.error(f"An error occurred during execution: {str(e)}")
-        finally:
-            self.news_scraper.driver_quit()
-
-
-if __name__ == "__main__":
-    bot = BotScraper()
-    bot.run("https://www.latimes.com/")
