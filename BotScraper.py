@@ -283,17 +283,23 @@ class NewsScraper:
         )
         return bool(money_pattern.search(text))
 
-    def save_to_excel(self, news):
+
+class ExcelSaver:
+    def __init__(self, excel):
+        self.excel = excel
+
+    def save(self, news, search_phrase):
         try:
             if not news:
                 logging.warning("No news data to save.")
                 return
-            excel_filename = self.search_phrase.lower().replace(" ", "-")
+            excel_filename = search_phrase.lower().replace(" ", "-")
             self.excel.create_workbook(f"output/news_{excel_filename}.xlsx")
             self.excel.append_rows_to_worksheet(news, header=True)
             self.excel.save_workbook()
         except Exception as e:
             logging.error(f"Failed to save news to Excel: {str(e)}")
+
 
     def run(self, url):
         try:
