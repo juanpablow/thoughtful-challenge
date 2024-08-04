@@ -76,6 +76,14 @@ class NewsScraper:
         self.category = category
         self.months = months
 
+    def _check_no_results(self):
+        div_results_element = "css:div.search-results-module-ajax"
+        no_results_element = "css:div.search-results-module-no-results"
+
+        self.browser.wait_until_element_is_visible(div_results_element)
+        if self.browser.is_element_visible(no_results_element):
+            return True
+
     def search_and_filter_news(self):
         search_btn_element = "css:button[data-element='search-button']"
         search_input_element = "css:input[data-element='search-form-input']"
@@ -86,6 +94,12 @@ class NewsScraper:
         self.browser.click_button(search_btn_element)
         self.browser.input_text(search_input_element, self.search_phrase)
         self.browser.press_key(search_input_element, Keys.ENTER)
+
+        if self._check_no_results():
+            error_message = (
+                f"No results found for the search phrase '{self.search_phrase}'"
+            )
+            raise ValueError(error_message)
 
         if self.category:
             self._filter_by_category()
