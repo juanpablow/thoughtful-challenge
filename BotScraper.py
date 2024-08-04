@@ -68,6 +68,12 @@ class WorkItemLoader:
             return 1
 
 
+class NewsScraper:
+    def __init__(self, browser, search_phrase, category, months):
+        self.browser = browser
+        self.search_phrase = search_phrase
+        self.category = category
+        self.months = months
 
     def search_and_filter_news(self):
         search_btn_element = "css:button[data-element='search-button']"
@@ -81,36 +87,11 @@ class WorkItemLoader:
         self.browser.press_key(search_input_element, Keys.ENTER)
 
         if self.category:
-            category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
-            filters_open_button = "css:.button.filters-open-button"
-            apply_button = "css:.button.apply-button"
-            try:
-                if self.browser.is_element_visible(filters_open_button):
-                    self.browser.click_element(filters_open_button)
-                self.browser.wait_until_element_is_visible(
-                    category_checkbox_element, timeout=10
-                )
-            except Exception as e:
-                logging.warning(
-                    f"Category '{self.category}' not found. Exception: {str(e)}"
-                )
-            try:
-                self.browser.wait_until_element_is_visible(
-                    category_checkbox_element, timeout=10
-                )
-                self.browser.click_element(category_checkbox_element)
+            self._filter_by_category()
 
-                if self.browser.is_element_visible(filters_open_button):
-                    self.browser.wait_until_element_is_visible(apply_button, timeout=10)
-                    self.browser.click_element(apply_button)
-            except Exception as e:
-                logging.warning(
-                    f"Category '{self.category}' not found. Exception: {str(e)}"
-                )
         try:
             self.browser.wait_until_element_is_visible(select_input_element, timeout=10)
             self.browser.click_element(select_input_element)
-
             self.browser.wait_until_element_is_visible(
                 option_newest_element, timeout=10
             )
@@ -121,6 +102,35 @@ class WorkItemLoader:
         except Exception as e:
             logging.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
+            )
+
+    def _filter_by_category(self):
+        category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
+        filters_open_button = "css:.button.filters-open-button"
+        apply_button = "css:.button.apply-button"
+        try:
+            if self.browser.is_element_visible(filters_open_button):
+                self.browser.click_element(filters_open_button)
+            self.browser.wait_until_element_is_visible(
+                category_checkbox_element, timeout=10
+            )
+        except Exception as e:
+            logging.warning(
+                f"Category '{self.category}' not found. Exception: {str(e)}"
+            )
+
+        try:
+            self.browser.wait_until_element_is_visible(
+                category_checkbox_element, timeout=10
+            )
+            self.browser.click_element(category_checkbox_element)
+
+            if self.browser.is_element_visible(filters_open_button):
+                self.browser.wait_until_element_is_visible(apply_button, timeout=10)
+                self.browser.click_element(apply_button)
+        except Exception as e:
+            logging.warning(
+                f"Category '{self.category}' not found. Exception: {str(e)}"
             )
 
     def get_news(self):
@@ -135,45 +145,56 @@ class WorkItemLoader:
 
                 for article in articles:
                     try:
-                        news_obj = {
-                            "title": "N/A",
-                            "description": "N/A",
-                            "date": "N/A",
-                            "picture_filename": "N/A",
-                            "picture_path": "N/A",
-                            "search_phrase_count": 0,
-                            "contains_money": False,
-                        }
-
-                        news_obj["date"], not_month_limit = self.get_date_news(article)
-                        if not not_month_limit:
+                        news_obj = self._process_article(article)
+                        if not news_obj:
+                            not_month_limit = False
                             break
-
-                        news_obj["title"] = self.get_title_news(article)
-                        news_obj["description"] = self.get_description_news(article)
-                        news_obj["picture_path"], news_obj["picture_filename"] = (
-                            self.get_image_news(article, news_obj["title"])
-                        )
-                        news_obj["search_phrase_count"] = self.count_search_phrase(
-                            news_obj["title"], news_obj["description"]
-                        )
-                        news_obj["contains_money"] = self.contains_money(
-                            news_obj["title"]
-                        ) or self.contains_money(news_obj["description"])
-
                         news.append(news_obj)
                     except Exception as e:
                         logging.warning(f"Failed to process article: {str(e)}")
                         continue
 
-                self.goto_next_page()
+                self._goto_next_page()
             except Exception as e:
                 logging.warning(f"Failed to find articles: {str(e)}")
                 break
 
         return news
 
-    def goto_next_page(self):
+    def _process_article(self, article):
+        try:
+            news_obj = {
+                "title": "N/A",
+                "description": "N/A",
+                "date": "N/A",
+                "picture_filename": "N/A",
+                "picture_path": "N/A",
+                "search_phrase_count": 0,
+                "contains_money": False,
+            }
+
+            news_obj["date"], within_months = self._get_date_news(article)
+            if not within_months:
+                return None
+
+            news_obj["title"] = self._get_title_news(article)
+            news_obj["description"] = self._get_description_news(article)
+            news_obj["picture_path"], news_obj["picture_filename"] = (
+                self._get_image_news(article, news_obj["title"])
+            )
+            news_obj["search_phrase_count"] = self._count_search_phrase(
+                news_obj["title"], news_obj["description"]
+            )
+            news_obj["contains_money"] = self._contains_money(
+                news_obj["title"]
+            ) or self._contains_money(news_obj["description"])
+
+            return news_obj
+        except Exception as e:
+            logging.warning(f"Failed to process article: {str(e)}")
+            return None
+
+    def _goto_next_page(self):
         next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
         try:
             self.browser.wait_until_element_is_visible(next_page, timeout=10)
@@ -183,7 +204,7 @@ class WorkItemLoader:
                 f"Next page element not found or click failed. Exception: {str(e)}"
             )
 
-    def get_date_news(self, article):
+    def _get_date_news(self, article):
         current_date = datetime.now()
         current_year_month = (current_date.year, current_date.month)
         try:
@@ -205,31 +226,31 @@ class WorkItemLoader:
             logging.warning(f"Date not found in article. Exception: {str(e)}")
             return "N/A", True
 
-    def get_title_news(self, article):
+    def _get_title_news(self, article):
         try:
             return article.find_element("css selector", "h3.promo-title a").text
         except Exception as e:
             logging.warning(f"Title not found in article. Exception: {str(e)}")
             return "N/A"
 
-    def get_description_news(self, article):
+    def _get_description_news(self, article):
         try:
             return article.find_element("css selector", "p.promo-description").text
         except Exception as e:
             logging.warning(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
 
-    def get_image_news(self, article, title):
+    def _get_image_news(self, article, title):
         try:
             image_element = article.find_element("css selector", "div.promo-media img")
             image_url = image_element.get_attribute("src")
-            filename = self.regex(str(title).lower()).replace(" ", "-")
+            filename = self._regex(str(title).lower()).replace(" ", "-")
             image_filename = f"{filename}.png"
             download_path = f"output/{image_filename}"
 
             image_abs_path = os.path.join(os.getcwd(), download_path)
 
-            self.download_image(image_url, download_path)
+            self._download_image(image_url, download_path)
             return image_abs_path, image_filename
         except Exception as e:
             logging.warning(
@@ -237,7 +258,7 @@ class WorkItemLoader:
             )
             return "N/A", "N/A"
 
-    def download_image(self, image_url, file_path):
+    def _download_image(self, image_url, file_path):
         try:
             self.http.download(image_url, file_path)
         except Exception as e:
@@ -245,15 +266,17 @@ class WorkItemLoader:
                 f"Failed to download image from {image_url}. Exception: {str(e)}"
             )
 
-    def regex(self, text):
+    @staticmethod
+    def _regex(text):
         return re.sub(r"[^A-Za-z0-9\s]+", "", text)
 
-    def count_search_phrase(self, title, description):
+    def _count_search_phrase(self, title, description):
         search_phrase_count = title.lower().count(self.search_phrase.lower())
         search_phrase_count += description.lower().count(self.search_phrase.lower())
         return search_phrase_count
 
-    def contains_money(self, text):
+    @staticmethod
+    def _contains_money(text):
         money_pattern = re.compile(
             r"\$\d+(\.\d{1,2})?|(\d{1,3}(,\d{3})*(\.\d{2})?)? (dollars|USD)",
             re.IGNORECASE,
