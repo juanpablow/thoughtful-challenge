@@ -6,7 +6,7 @@ from datetime import datetime
 from RPA.Excel.Files import Files
 from RPA.HTTP import HTTP
 from RPA.Robocorp.WorkItems import WorkItems
-from selenium.webdriver.common.keys import Keys
+from selenium.common.exceptions import StaleElementReferenceException
 
 from CustomSelenium import CustomSelenium
 
@@ -68,9 +68,9 @@ class WorkItemLoader:
             return 1
 
 
-class NewsScraper:
-    def __init__(self, browser, search_phrase, category, months):
-        self.browser = browser
+class NewsScraper(CustomSelenium):
+    def __init__(self, search_phrase, category, months):
+        super().__init__()
         self.http = HTTP()
         self.search_phrase = search_phrase
         self.category = category
@@ -93,7 +93,7 @@ class NewsScraper:
         self.browser.wait_until_element_is_visible(search_btn_element, timeout=10)
         self.browser.click_button(search_btn_element)
         self.browser.input_text(search_input_element, self.search_phrase)
-        self.browser.press_key(search_input_element, Keys.ENTER)
+        self.browser.press_key(search_input_element, "\ue007")  # press enter
 
         if self._check_no_results():
             error_message = (
@@ -111,9 +111,6 @@ class NewsScraper:
                 option_newest_element, timeout=10
             )
             self.browser.click_element(option_newest_element)
-            self.browser.wait_until_element_is_not_visible(
-                option_newest_element, timeout=10
-            )
         except Exception as e:
             logging.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
@@ -148,6 +145,19 @@ class NewsScraper:
                 f"Category '{self.category}' not found. Exception: {str(e)}"
             )
 
+    def _is_element_stale(self, element):
+        try:
+            element.get_attribute("outerHTML")
+            return False
+        except StaleElementReferenceException:
+            return True
+
+    def _wait_until_not_stale(self, locator):
+        self.browser.wait_until_page_contains_element(locator, timeout=30)
+        element = self.browser.find_element(locator)
+        self.browser.wait_until_element_is_visible(element, timeout=30)
+        return element
+
     def get_news(self):
         news = []
         not_month_limit = True
@@ -161,6 +171,8 @@ class NewsScraper:
 
                 for article in articles:
                     try:
+                        if self._is_element_stale(article):
+                            article = self._wait_until_not_stale(article_element)
                         news_obj = self._process_article(article)
                         if not news_obj:
                             not_month_limit = False
@@ -217,9 +229,7 @@ class NewsScraper:
             self.browser.wait_until_element_is_visible(next_page, timeout=10)
             self.browser.click_element(next_page)
         except Exception as e:
-            logging.warning(
-                f"Next page element not found or click failed. Exception: {str(e)}"
-            )
+            raise ValueError(e)
 
     def _get_date_news(self, article):
         current_date = datetime.now()
@@ -318,9 +328,8 @@ class ExcelSaver:
             logging.error(f"Failed to save news to Excel: {str(e)}")
 
 
-class BotScraper(CustomSelenium):
+class BotScraper:
     def __init__(self):
-        super().__init__()
         self.work_item_loader = WorkItemLoader()
         self.news_scraper = None
         self.excel_saver = ExcelSaver()
@@ -328,15 +337,14 @@ class BotScraper(CustomSelenium):
     def load_work_item(self):
         self.work_item_loader.load()
         self.news_scraper = NewsScraper(
-            self.browser,
             self.work_item_loader.search_phrase,
             self.work_item_loader.category,
             self.work_item_loader.months,
         )
 
     def open_website(self, url):
-        self.open_browser()
-        self.open_url(url)
+        self.news_scraper.open_browser()
+        self.news_scraper.open_url(url)
 
     def run(self, url):
         try:
@@ -348,7 +356,7 @@ class BotScraper(CustomSelenium):
         except Exception as e:
             logging.error(f"An error occurred during execution: {str(e)}")
         finally:
-            self.driver_quit()
+            self.news_scraper.driver_quit()
 
 
 if __name__ == "__main__":
