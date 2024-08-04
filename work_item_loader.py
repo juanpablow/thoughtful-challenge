@@ -19,7 +19,7 @@ class WorkItemLoader:
             self.search_phrase = self._get_mandatory_value(
                 work_item_data, "search_phrase"
             )
-            self.category = work_item_data.get("category", None)
+            self.category = work_item_data.get("category", None).capitalize()
             self.months = self._get_months(work_item_data)
         except Exception as e:
             logger.error(f"Failed to load work items: {str(e)}")
