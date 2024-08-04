@@ -16,8 +16,8 @@ logging.basicConfig(
 
 
 class WorkItemLoader:
-    def __init__(self, work_items):
-        self.work_items = work_items
+    def __init__(self):
+        self.work_items = WorkItems()
         self.search_phrase = ""
         self.category = ""
         self.months = 0
@@ -71,6 +71,7 @@ class WorkItemLoader:
 class NewsScraper:
     def __init__(self, browser, search_phrase, category, months):
         self.browser = browser
+        self.http = HTTP()
         self.search_phrase = search_phrase
         self.category = category
         self.months = months
@@ -136,6 +137,7 @@ class NewsScraper:
     def get_news(self):
         news = []
         not_month_limit = True
+        next_page = True
         article_element = "css:div[class='promo-wrapper']"
 
         while not_month_limit:
@@ -148,13 +150,14 @@ class NewsScraper:
                         news_obj = self._process_article(article)
                         if not news_obj:
                             not_month_limit = False
+                            next_page = False
                             break
                         news.append(news_obj)
                     except Exception as e:
                         logging.warning(f"Failed to process article: {str(e)}")
                         continue
-
-                self._goto_next_page()
+                if next_page:
+                    self._goto_next_page()
             except Exception as e:
                 logging.warning(f"Failed to find articles: {str(e)}")
                 break
@@ -285,8 +288,8 @@ class NewsScraper:
 
 
 class ExcelSaver:
-    def __init__(self, excel):
-        self.excel = excel
+    def __init__(self):
+        self.excel = Files()
 
     def save(self, news, search_phrase):
         try:
@@ -301,12 +304,33 @@ class ExcelSaver:
             logging.error(f"Failed to save news to Excel: {str(e)}")
 
 
+class BotScraper(CustomSelenium):
+    def __init__(self):
+        super().__init__()
+        self.work_item_loader = WorkItemLoader()
+        self.news_scraper = None
+        self.excel_saver = ExcelSaver()
+
+    def load_work_item(self):
+        self.work_item_loader.load()
+        self.news_scraper = NewsScraper(
+            self.browser,
+            self.work_item_loader.search_phrase,
+            self.work_item_loader.category,
+            self.work_item_loader.months,
+        )
+
+    def open_website(self, url):
+        self.open_browser()
+        self.open_url(url)
+
     def run(self, url):
         try:
+            self.load_work_item()
             self.open_website(url)
-            self.search_and_filter_news()
-            news = self.get_news()
-            self.save_to_excel(news)
+            self.news_scraper.search_and_filter_news()
+            news = self.news_scraper.get_news()
+            self.excel_saver.save(news, self.work_item_loader.search_phrase)
         except Exception as e:
             logging.error(f"An error occurred during execution: {str(e)}")
         finally:
