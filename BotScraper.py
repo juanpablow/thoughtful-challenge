@@ -15,64 +15,59 @@ logging.basicConfig(
 )
 
 
-class BotScraper(CustomSelenium):
-    def __init__(self):
-        super().__init__()
-        self.work_items = WorkItems()
-        self.excel = Files()
-        self.http = HTTP()
+class WorkItemLoader:
+    def __init__(self, work_items):
+        self.work_items = work_items
         self.search_phrase = ""
         self.category = ""
         self.months = 0
-        self.load_work_item()
 
-    def load_work_item(self):
+    def load(self):
         try:
             self.work_items.get_input_work_item()
             work_item_data = self.work_items.get_work_item_variables()
 
-            try:
-                self.search_phrase = work_item_data["search_phrase"]
-                if not self.search_phrase:
-                    raise ValueError(
-                        "The 'search_phrase' is mandatory and was not provided in the work item."
-                    )
-            except KeyError:
-                logging.error(
-                    "The 'search_phrase' is mandatory and was not provided in the work item."
-                )
-                raise ValueError(
-                    "The 'search_phrase' is mandatory and was not provided in the work item."
-                )
-
-            try:
-                self.category = work_item_data.get("category", None)
-            except KeyError:
-                logging.warning("The 'category' was not provided in the work item.")
-                self.category = None
-
-            try:
-                self.months = int(work_item_data.get("months", 0))
-                if self.months < 0:
-                    logging.warning(
-                        "The 'months' provided is less than 0. Defaulting to 1."
-                    )
-                    self.months = 1
-            except ValueError:
-                logging.warning(
-                    "The 'months' is not a valid integer in the work item, defaulting to 1."
-                )
-                self.months = 0
-            if self.months == 0:
-                self.months = 1
-
+            self.search_phrase = self._get_mandatory_value(
+                work_item_data, "search_phrase"
+            )
+            self.category = work_item_data.get("category", None)
+            self.months = self._get_months(work_item_data)
         except Exception as e:
             logging.error(f"Failed to load work items: {str(e)}")
             raise ValueError(e)
 
-    def open_website(self, url):
-        self.open_browser()
-        self.open_url(url)
+    def _get_mandatory_value(self, data, key):
+        try:
+            value = data[key]
+            if not value:
+                raise ValueError(
+                    f"The '{key}' is mandatory and was not provided in the work item."
+                )
+            return value
+        except KeyError:
+            logging.error(
+                f"The '{key}' is mandatory and was not provided in the work item."
+            )
+            raise ValueError(
+                f"The '{key}' is mandatory and was not provided in the work item."
+            )
+
+    def _get_months(self, data):
+        try:
+            months = int(data.get("months", 0))
+            if months < 0:
+                logging.warning(
+                    "The 'months' provided is less than 0. Defaulting to 1."
+                )
+                return 1
+            return months if months > 0 else 1
+        except ValueError:
+            logging.warning(
+                "The 'months' is not a valid integer in the work item, defaulting to 1."
+            )
+            return 1
+
+
 
     def search_and_filter_news(self):
         search_btn_element = "css:button[data-element='search-button']"
