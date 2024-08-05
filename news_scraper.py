@@ -215,8 +215,10 @@ class NewsScraper(CustomSelenium):
             return "N/A"
 
     def _get_description_news(self, article):
+        locator = "css:p.promo-description"
         try:
-            return article.find_element("css selector", "p.promo-description").text
+            if self.browser.is_element_visible(locator):
+                return article.find_element("css selector", "p.promo-description").text
         except Exception as e:
             logger.warning(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
