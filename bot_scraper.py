@@ -36,7 +36,8 @@ class BotScraper:
         except Exception as e:
             logging.error(f"An error occurred during execution: {str(e)}")
         finally:
-            self.news_scraper.driver_quit()
+            if self.news_scraper:
+                self.news_scraper.driver_quit()
 
 
 if __name__ == "__main__":
