@@ -110,6 +110,7 @@ The bot includes error handling mechanisms to ensure robustness:
 ├── custom_selenium.py
 ├── excel_saver.py
 ├── LICENSE
+├── logger_config.py
 ├── news_scraper.py
 ├── rcc
 ├── README.md
