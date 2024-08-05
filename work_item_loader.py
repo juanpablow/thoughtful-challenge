@@ -31,9 +31,12 @@ class WorkItemLoader:
             value = data[key]
             if isinstance(value, int):
                 value = str(value)
+            value = value.strip()
+            if not value:
+                raise ValueError(error_message)
             return value.strip()
-        except KeyError:
-            raise ValueError(error_message)
+        except Exception as e:
+            raise ValueError(e)
 
     def _get_category(self, data):
         key = "category"
