@@ -1,7 +1,5 @@
-import logging
+from logger_config import logger
 from RPA.Robocorp.WorkItems import WorkItems
-
-logger = logging.getLogger(__name__)
 
 
 class WorkItemLoader:

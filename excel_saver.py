@@ -1,7 +1,5 @@
-import logging
+from logger_config import logger
 from RPA.Excel.Files import Files
-
-logger = logging.getLogger(__name__)
 
 
 class ExcelSaver:

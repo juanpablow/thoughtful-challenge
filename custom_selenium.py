@@ -1,11 +1,11 @@
-import logging
+from logger_config import logger
 from RPA.Browser.Selenium import Selenium
 
 
 class CustomSelenium:
     def __init__(self):
         self.driver = None
-        self.logger = logging.getLogger(__name__)
+        self.logger = logger
         self.browser = Selenium()
 
     def open_browser(self):

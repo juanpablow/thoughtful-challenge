@@ -1,4 +1,3 @@
-import logging
 import os
 import re
 from datetime import datetime
@@ -12,9 +11,8 @@ from selenium.webdriver.support.expected_conditions import (
 )
 from selenium.webdriver.support.ui import WebDriverWait
 
+from logger_config import logger
 from custom_selenium import CustomSelenium
-
-logger = logging.getLogger(__name__)
 
 
 class NewsScraper(CustomSelenium):
@@ -219,6 +217,9 @@ class NewsScraper(CustomSelenium):
         try:
             if self.browser.is_element_visible(locator):
                 return article.find_element("css selector", "p.promo-description").text
+            else:
+                logger.warning("Description not found in article.")
+                return "N/A"
         except Exception as e:
             logger.warning(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
