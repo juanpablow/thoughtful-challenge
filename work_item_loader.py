@@ -1,4 +1,5 @@
 from logger_config import verbose_logger
+from typing import Any, Dict
 from RPA.Robocorp.WorkItems import WorkItems
 
 
@@ -9,7 +10,7 @@ class WorkItemLoader:
         self.category = ""
         self.months = 0
 
-    def load(self):
+    def load(self) -> None:
         try:
             self.work_items.get_input_work_item()
             work_item_data = self.work_items.get_work_item_variables()
@@ -20,7 +21,7 @@ class WorkItemLoader:
         except Exception as e:
             raise ValueError(e)
 
-    def _get_search_phrase(self, data):
+    def _get_search_phrase(self, data: Dict[str, Any]) -> str:
         key = "search_phrase"
         try:
             value = data[key]
@@ -36,7 +37,7 @@ class WorkItemLoader:
             )
             raise ValueError(error_message)
 
-    def _get_category(self, data):
+    def _get_category(self, data: Dict[str, Any]) -> str:
         key = "category"
         try:
             value = data.get(key, "")
@@ -53,7 +54,7 @@ class WorkItemLoader:
             verbose_logger.warning(f"The '{key}' was not provided in the work item.")
             return ""
 
-    def _get_months(self, data):
+    def _get_months(self, data: Dict[str, Any]) -> int:
         try:
             months = int(data.get("months", 0))
             if months < 0:

@@ -1,4 +1,6 @@
 from logger_config import verbose_logger
+from typing import List, Dict, Any
+
 from RPA.Excel.Files import Files
 
 
@@ -6,7 +8,7 @@ class ExcelSaver:
     def __init__(self):
         self.excel = Files()
 
-    def save(self, news, search_phrase):
+    def save(self, news: List[Dict[str, Any]], search_phrase: str) -> None:
         try:
             if not news:
                 verbose_logger.warning("No news data to save.")

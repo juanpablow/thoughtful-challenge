@@ -12,7 +12,7 @@ class BotScraper:
         self.excel_saver = ExcelSaver()
         verbose_logger.info("BotScraper initialized")
 
-    def load_work_item(self):
+    def load_work_item(self) -> None:
         verbose_logger.info("Loading work item...")
         self.work_item_loader.load()
         self.news_scraper = NewsScraper(
@@ -22,13 +22,13 @@ class BotScraper:
         )
         verbose_logger.info("Work item loaded successfully.")
 
-    def open_website(self, url):
+    def open_website(self, url: str) -> None:
         verbose_logger.info(f"Opening website: {url}")
         self.news_scraper.open_browser()
         self.news_scraper.open_url(url)
         verbose_logger.info(f"Website opened: {url}")
 
-    def run(self, url):
+    def run(self, url: str) -> None:
         verbose_logger.info("Starting bot run...")
         try:
             self.load_work_item()

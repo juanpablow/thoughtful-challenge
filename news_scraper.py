@@ -2,31 +2,32 @@ import os
 import re
 from datetime import datetime
 from time import sleep
+from typing import List, Tuple, Union
 
 from RPA.HTTP import HTTP
 from selenium.common.exceptions import StaleElementReferenceException
+from selenium.webdriver.remote.webelement import WebElement
 
 from logger_config import verbose_logger
 from custom_selenium import CustomSelenium
 
 
 class NewsScraper(CustomSelenium):
-    def __init__(self, search_phrase, category, months):
+    def __init__(self, search_phrase: str, category: str, months: int):
         super().__init__()
         self.http = HTTP()
         self.search_phrase = search_phrase
         self.category = category
         self.months = months
 
-    def _check_no_results(self):
+    def _check_no_results(self) -> bool:
         div_results_element = "css:div.search-results-module-ajax"
         no_results_element = "css:div.search-results-module-no-results"
 
         self.browser.wait_until_element_is_visible(div_results_element)
-        if self.browser.is_element_visible(no_results_element):
-            return True
+        return self.browser.is_element_visible(no_results_element)
 
-    def search_and_filter_news(self):
+    def search_and_filter_news(self) -> None:
         search_btn_element = "css:button[data-element='search-button']"
         search_input_element = "css:input[data-element='search-form-input']"
         select_input_element = "css:select.select-input"
@@ -63,7 +64,7 @@ class NewsScraper(CustomSelenium):
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
             )
 
-    def _filter_by_category(self):
+    def _filter_by_category(self) -> None:
         category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[translate(text(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='{self.category.upper()}']"
         filters_open_button = "css:.button.filters-open-button"
         apply_button = "css:.button.apply-button"
@@ -96,21 +97,20 @@ class NewsScraper(CustomSelenium):
                 f"Category '{self.category}' not found. Exception: {str(e)}"
             )
 
-    def _is_element_stale(self, element):
+    def _is_element_stale(self, element: WebElement) -> bool:
         try:
             element.get_attribute("outerHTML")
             return False
         except StaleElementReferenceException:
             return True
 
-    def _wait_until_not_stale(self, locator):
+    def _wait_until_not_stale(self, locator: str) -> WebElement:
         self.browser.wait_until_page_contains_element(locator, timeout=30)
         element = self.browser.find_element(locator)
         self.browser.wait_until_element_is_visible(element, timeout=30)
-
         return element
 
-    def get_news(self):
+    def get_news(self) -> List[dict]:
         news = []
         not_month_limit = True
         next_page = True
@@ -144,7 +144,7 @@ class NewsScraper(CustomSelenium):
 
         return news
 
-    def _process_article(self, article):
+    def _process_article(self, article: WebElement) -> Union[dict, None]:
         try:
             news_obj = {
                 "title": "N/A",
@@ -177,7 +177,7 @@ class NewsScraper(CustomSelenium):
             verbose_logger.warning(f"Failed to process article: {str(e)}")
             return None
 
-    def _goto_next_page(self):
+    def _goto_next_page(self) -> None:
         next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
         try:
             verbose_logger.info("Going to next page.")
@@ -186,7 +186,7 @@ class NewsScraper(CustomSelenium):
         except Exception as e:
             raise ValueError(e)
 
-    def _get_date_news(self, article):
+    def _get_date_news(self, article: WebElement) -> Tuple[Union[str, None], bool]:
         current_date = datetime.now()
         current_year_month = (current_date.year, current_date.month)
         try:
@@ -208,14 +208,14 @@ class NewsScraper(CustomSelenium):
             verbose_logger.warning(f"Date not found in article. Exception: {str(e)}")
             return "N/A", True
 
-    def _get_title_news(self, article):
+    def _get_title_news(self, article: WebElement) -> str:
         try:
             return article.find_element("css selector", "h3.promo-title a").text
         except Exception as e:
             verbose_logger.warning(f"Title not found in article. Exception: {str(e)}")
             return "N/A"
 
-    def _get_description_news(self, article):
+    def _get_description_news(self, article: WebElement) -> str:
         try:
             description_element = article.find_element(
                 "css selector", "p.promo-description"
@@ -225,7 +225,7 @@ class NewsScraper(CustomSelenium):
             verbose_logger.info("Description not found in article.")
             return "N/A"
 
-    def _get_image_news(self, article, title):
+    def _get_image_news(self, article: WebElement, title: str) -> Tuple[str, str]:
         try:
             image_element = article.find_element("css selector", "div.promo-media img")
             image_url = image_element.get_attribute("src")
@@ -243,7 +243,7 @@ class NewsScraper(CustomSelenium):
             )
             return "N/A", "N/A"
 
-    def _download_image(self, image_url, file_path):
+    def _download_image(self, image_url: str, file_path: str) -> None:
         try:
             verbose_logger.info(f"Downloading image from {image_url}")
             self.http.download(image_url, file_path)
@@ -253,16 +253,16 @@ class NewsScraper(CustomSelenium):
             )
 
     @staticmethod
-    def _regex(text):
+    def _regex(text: str) -> str:
         return re.sub(r"[^A-Za-z0-9\s]+", "", text)
 
-    def _count_search_phrase(self, title, description):
+    def _count_search_phrase(self, title: str, description: str) -> int:
         search_phrase_count = title.lower().count(self.search_phrase.lower())
         search_phrase_count += description.lower().count(self.search_phrase.lower())
         return search_phrase_count
 
     @staticmethod
-    def _contains_money(text):
+    def _contains_money(text: str) -> bool:
         money_pattern = re.compile(
             r"\$\d+(\.\d{1,2})?|(\d{1,3}(,\d{3})*(\.\d{2})?)? (dollars|USD)",
             re.IGNORECASE,
