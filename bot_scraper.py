@@ -23,10 +23,8 @@ class BotScraper:
         logger.info("Work item loaded successfully.")
 
     def open_website(self, url):
-        logger.info(f"Opening website: {url}")
         self.news_scraper.open_browser()
         self.news_scraper.open_url(url)
-        logger.info(f"Website opened: {url}")
 
     def run(self, url):
         try:
@@ -35,13 +33,11 @@ class BotScraper:
             self.news_scraper.search_and_filter_news()
             news = self.news_scraper.get_news()
             self.excel_saver.save(news, self.work_item_loader.search_phrase)
-            logger.info("Bot run completed successfully.")
         except Exception as e:
             logger.error(f"An error occurred during execution: {str(e)}")
         finally:
             if self.news_scraper:
                 self.news_scraper.driver_quit()
-                logger.info("Browser closed.")
 
 
 if __name__ == "__main__":
