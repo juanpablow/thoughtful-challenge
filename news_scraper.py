@@ -6,7 +6,7 @@ from time import sleep
 from RPA.HTTP import HTTP
 from selenium.common.exceptions import StaleElementReferenceException
 
-from logger_config import logger
+from logger_config import verbose_logger
 from custom_selenium import CustomSelenium
 
 
@@ -33,10 +33,10 @@ class NewsScraper(CustomSelenium):
         option_newest_element = "xpath://option[text()='Newest']"
 
         self.browser.wait_until_element_is_visible(search_btn_element, timeout=10)
-        logger.info("Clicking search button.")
+        verbose_logger.info("Clicking search button.")
         self.browser.click_button(search_btn_element)
 
-        logger.info(f"Entering search phrase: {self.search_phrase}")
+        verbose_logger.info(f"Entering search phrase: {self.search_phrase}")
         self.browser.input_text(search_input_element, self.search_phrase)
         self.browser.press_key(search_input_element, "\ue007")  # press enter
 
@@ -51,7 +51,7 @@ class NewsScraper(CustomSelenium):
 
         try:
             self.browser.wait_until_element_is_visible(select_input_element, timeout=10)
-            logger.info("Selecting 'Newest' option.")
+            verbose_logger.info("Selecting 'Newest' option.")
             self.browser.click_element(select_input_element)
             self.browser.wait_until_element_is_visible(
                 option_newest_element, timeout=10
@@ -59,7 +59,7 @@ class NewsScraper(CustomSelenium):
             self.browser.click_element(option_newest_element)
             sleep(5)
         except Exception as e:
-            logger.warning(
+            verbose_logger.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
             )
 
@@ -69,28 +69,32 @@ class NewsScraper(CustomSelenium):
         apply_button = "css:.button.apply-button"
         try:
             if self.browser.is_element_visible(filters_open_button):
-                logger.info(f"Opening filters for category: {self.category}")
+                verbose_logger.info(f"Opening filters for category: {self.category}")
                 self.browser.click_element(filters_open_button)
             self.browser.wait_until_element_is_visible(
                 category_checkbox_element, timeout=10
             )
         except Exception as e:
-            logger.warning(f"Category '{self.category}' not found. Exception: {str(e)}")
+            verbose_logger.warning(
+                f"Category '{self.category}' not found. Exception: {str(e)}"
+            )
 
         try:
             self.browser.wait_until_element_is_visible(
                 category_checkbox_element, timeout=10
             )
-            logger.info(f"Selecting category: {self.category}")
+            verbose_logger.info(f"Selecting category: {self.category}")
             self.browser.click_element(category_checkbox_element)
 
             if self.browser.is_element_visible(filters_open_button):
                 self.browser.wait_until_element_is_visible(apply_button, timeout=10)
-                logger.info("Applying category filter.")
+                verbose_logger.info("Applying category filter.")
                 self.browser.click_element(apply_button)
             sleep(5)
         except Exception as e:
-            logger.warning(f"Category '{self.category}' not found. Exception: {str(e)}")
+            verbose_logger.warning(
+                f"Category '{self.category}' not found. Exception: {str(e)}"
+            )
 
     def _is_element_stale(self, element):
         try:
@@ -114,14 +118,14 @@ class NewsScraper(CustomSelenium):
 
         while not_month_limit:
             try:
-                logger.info("Waiting for articles to be visible.")
+                verbose_logger.info("Waiting for articles to be visible.")
                 self.browser.wait_until_element_is_visible(article_element, timeout=20)
                 articles = self.browser.find_elements(article_element)
 
                 for article in articles:
                     try:
                         if self._is_element_stale(article):
-                            logger.info("Waiting for stale element to refresh.")
+                            verbose_logger.info("Waiting for stale element to refresh.")
                             article = self._wait_until_not_stale(article_element)
                         news_obj = self._process_article(article)
                         if not news_obj:
@@ -130,12 +134,12 @@ class NewsScraper(CustomSelenium):
                             break
                         news.append(news_obj)
                     except Exception as e:
-                        logger.warning(f"Failed to process article: {str(e)}")
+                        verbose_logger.warning(f"Failed to process article: {str(e)}")
                         continue
                 if next_page:
                     self._goto_next_page()
             except Exception as e:
-                logger.warning(f"Failed to find articles: {str(e)}")
+                verbose_logger.warning(f"Failed to find articles: {str(e)}")
                 break
 
         return news
@@ -170,13 +174,13 @@ class NewsScraper(CustomSelenium):
 
             return news_obj
         except Exception as e:
-            logger.warning(f"Failed to process article: {str(e)}")
+            verbose_logger.warning(f"Failed to process article: {str(e)}")
             return None
 
     def _goto_next_page(self):
         next_page = "//div[contains(@class, 'search-results-module-next-page')]//a[@rel='nofollow']"
         try:
-            logger.info("Going to next page.")
+            verbose_logger.info("Going to next page.")
             self.browser.wait_until_element_is_visible(next_page, timeout=10)
             self.browser.click_element(next_page)
         except Exception as e:
@@ -201,14 +205,14 @@ class NewsScraper(CustomSelenium):
 
             return str(article_date.strftime("%m/%d/%Y")), True
         except Exception as e:
-            logger.warning(f"Date not found in article. Exception: {str(e)}")
+            verbose_logger.warning(f"Date not found in article. Exception: {str(e)}")
             return "N/A", True
 
     def _get_title_news(self, article):
         try:
             return article.find_element("css selector", "h3.promo-title a").text
         except Exception as e:
-            logger.warning(f"Title not found in article. Exception: {str(e)}")
+            verbose_logger.warning(f"Title not found in article. Exception: {str(e)}")
             return "N/A"
 
     def _get_description_news(self, article):
@@ -218,7 +222,7 @@ class NewsScraper(CustomSelenium):
             )
             return description_element.text if description_element else "N/A"
         except Exception:
-            logger.info("Description not found in article.")
+            verbose_logger.info("Description not found in article.")
             return "N/A"
 
     def _get_image_news(self, article, title):
@@ -234,17 +238,17 @@ class NewsScraper(CustomSelenium):
             self._download_image(image_url, download_path)
             return image_abs_path, image_filename
         except Exception as e:
-            logger.warning(
+            verbose_logger.warning(
                 f"Image not found in article or failed to download. Exception: {str(e)}"
             )
             return "N/A", "N/A"
 
     def _download_image(self, image_url, file_path):
         try:
-            logger.info(f"Downloading image from {image_url}")
+            verbose_logger.info(f"Downloading image from {image_url}")
             self.http.download(image_url, file_path)
         except Exception as e:
-            logger.warning(
+            verbose_logger.warning(
                 f"Failed to download image from {image_url}. Exception: {str(e)}"
             )
 

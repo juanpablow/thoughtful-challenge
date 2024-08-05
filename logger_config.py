@@ -9,10 +9,20 @@ class NoTracebackFormatter(logging.Formatter):
         return ""
 
 
-logger = logging.getLogger(__name__)
+logger = logging.getLogger("ROOT")
+logger.root.handlers.clear()
+logger.root.setLevel(logging.ERROR)
+
 handler = logging.StreamHandler()
-formatter = NoTracebackFormatter("%(asctime)s - %(name)s - %(levelname)s - %(message)s")
+formatter = logging.Formatter(
+    "%(asctime)s - %(name)s - %(levelname)s - %(message)s",
+    datefmt="%m/%d/%Y %I:%M:%S %p",
+)
 
 handler.setFormatter(formatter)
-logger.addHandler(handler)
-logger.setLevel(logging.INFO)
+logger.root.addHandler(handler)
+
+verbose_logger = logging.getLogger("BotScrapper")
+verbose_logger.propagate = False
+verbose_logger.addHandler(handler)
+verbose_logger.setLevel(logging.INFO)
