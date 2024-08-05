@@ -12,7 +12,7 @@ from selenium.webdriver.support.expected_conditions import (
 )
 from selenium.webdriver.support.ui import WebDriverWait
 
-from CustomSelenium import CustomSelenium
+from custom_selenium import CustomSelenium
 
 logger = logging.getLogger(__name__)
 
