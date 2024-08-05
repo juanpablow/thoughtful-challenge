@@ -13,14 +13,12 @@ class BotScraper:
         logger.info("BotScraper initialized")
 
     def load_work_item(self):
-        logger.info("Loading work item...")
         self.work_item_loader.load()
         self.news_scraper = NewsScraper(
             self.work_item_loader.search_phrase,
             self.work_item_loader.category,
             self.work_item_loader.months,
         )
-        logger.info("Work item loaded successfully.")
 
     def open_website(self, url):
         self.news_scraper.open_browser()

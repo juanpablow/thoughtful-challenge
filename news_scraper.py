@@ -118,7 +118,7 @@ class NewsScraper(CustomSelenium):
 
         while not_month_limit:
             try:
-                self.browser.wait_until_element_is_visible(article_element, timeout=10)
+                self.browser.wait_until_element_is_visible(article_element, timeout=20)
                 articles = self.browser.find_elements(article_element)
 
                 for article in articles:
