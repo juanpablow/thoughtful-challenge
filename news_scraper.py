@@ -64,7 +64,7 @@ class NewsScraper(CustomSelenium):
             )
 
     def _filter_by_category(self):
-        category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[text()='{self.category}']"
+        category_checkbox_element = f"//label[contains(@class, 'checkbox-input-label')]//span[translate(text(), 'abcdefghijklmnopqrstuvwxyz', 'ABCDEFGHIJKLMNOPQRSTUVWXYZ')='{self.category.upper()}']"
         filters_open_button = "css:.button.filters-open-button"
         apply_button = "css:.button.apply-button"
         try:

@@ -48,7 +48,7 @@ class WorkItemLoader:
                     f"The '{key}' was not provided in the work item."
                 )
                 return ""
-            return value.capitalize()
+            return value
         except KeyError:
             verbose_logger.warning(f"The '{key}' was not provided in the work item.")
             return ""
