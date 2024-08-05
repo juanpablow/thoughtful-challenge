@@ -1,15 +1,10 @@
 import os
 import re
 from datetime import datetime
+from time import sleep
 
 from RPA.HTTP import HTTP
 from selenium.common.exceptions import StaleElementReferenceException
-from selenium.webdriver.common.by import By
-from selenium.webdriver.support.expected_conditions import (
-    staleness_of,
-    presence_of_element_located,
-)
-from selenium.webdriver.support.ui import WebDriverWait
 
 from logger_config import logger
 from custom_selenium import CustomSelenium
@@ -36,7 +31,6 @@ class NewsScraper(CustomSelenium):
         search_input_element = "css:input[data-element='search-form-input']"
         select_input_element = "css:select.select-input"
         option_newest_element = "xpath://option[text()='Newest']"
-        article_element = "div.promo-wrapper"
 
         self.browser.wait_until_element_is_visible(search_btn_element, timeout=10)
         self.browser.click_button(search_btn_element)
@@ -59,13 +53,7 @@ class NewsScraper(CustomSelenium):
                 option_newest_element, timeout=10
             )
             self.browser.click_element(option_newest_element)
-            elements = self.browser.find_elements(f"css:{article_element}")
-            for element in elements:
-                WebDriverWait(self.browser.driver, 30).until(staleness_of(element))
-
-            WebDriverWait(self.browser.driver, 30).until(
-                presence_of_element_located((By.CSS_SELECTOR, article_element))
-            )
+            sleep(5)  # wait to let elements become stale
         except Exception as e:
             logger.warning(
                 f"Option 'Newest' not found or could not set selected property. Exception: {str(e)}"
@@ -93,6 +81,7 @@ class NewsScraper(CustomSelenium):
             if self.browser.is_element_visible(filters_open_button):
                 self.browser.wait_until_element_is_visible(apply_button, timeout=10)
                 self.browser.click_element(apply_button)
+            sleep(5)  # wait to let elements become stale
         except Exception as e:
             logger.warning(f"Category '{self.category}' not found. Exception: {str(e)}")
 
@@ -213,15 +202,13 @@ class NewsScraper(CustomSelenium):
             return "N/A"
 
     def _get_description_news(self, article):
-        locator = "css:p.promo-description"
         try:
-            if self.browser.is_element_visible(locator):
-                return article.find_element("css selector", "p.promo-description").text
-            else:
-                logger.warning("Description not found in article.")
-                return "N/A"
+            description_element = article.find_element(
+                "css selector", "p.promo-description"
+            )
+            return description_element.text if description_element else "N/A"
         except Exception as e:
-            logger.warning(f"Description not found in article. Exception: {str(e)}")
+            logger.info(f"Description not found in article. Exception: {str(e)}")
             return "N/A"
 
     def _get_image_news(self, article, title):
