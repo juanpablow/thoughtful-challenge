@@ -35,7 +35,6 @@ class BotScraper:
             self.excel_saver.save(news, self.work_item_loader.search_phrase)
         except Exception as e:
             logging.error(f"An error occurred during execution: {str(e)}")
-            raise
         finally:
             self.news_scraper.driver_quit()
 

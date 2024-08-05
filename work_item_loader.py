@@ -16,30 +16,39 @@ class WorkItemLoader:
             self.work_items.get_input_work_item()
             work_item_data = self.work_items.get_work_item_variables()
 
-            self.search_phrase = self._get_mandatory_value(
-                work_item_data, "search_phrase"
-            )
-            self.category = work_item_data.get("category", None).capitalize()
+            self.search_phrase = self._get_search_phrase(work_item_data)
+            self.category = self._get_category(work_item_data)
             self.months = self._get_months(work_item_data)
         except Exception as e:
-            logger.error(f"Failed to load work items: {str(e)}")
             raise ValueError(e)
 
-    def _get_mandatory_value(self, data, key):
+    def _get_search_phrase(self, data):
+        key = "search_phrase"
+        error_message = (
+            f"The '{key}' is mandatory and was not provided in the work item."
+        )
         try:
             value = data[key]
-            if not value:
-                raise ValueError(
-                    f"The '{key}' is mandatory and was not provided in the work item."
-                )
-            return value
+            if isinstance(value, int):
+                value = str(value)
+            return value.strip()
         except KeyError:
-            logger.error(
-                f"The '{key}' is mandatory and was not provided in the work item."
-            )
-            raise ValueError(
-                f"The '{key}' is mandatory and was not provided in the work item."
-            )
+            raise ValueError(error_message)
+
+    def _get_category(self, data):
+        key = "category"
+        try:
+            value = data.get(key, "")
+            if isinstance(value, int):
+                value = str(value)
+            value = value.strip()
+            if not value:
+                logger.warning(f"The '{key}' was not provided in the work item.")
+                return ""
+            return value.capitalize()
+        except KeyError:
+            logger.warning(f"The '{key}' was not provided in the work item.")
+            return ""
 
     def _get_months(self, data):
         try:
